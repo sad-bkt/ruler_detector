@@ -126,29 +126,41 @@ class Inferencer(BaseTrainer):
             for met in self.metrics["inference"]:
                 metrics.update(met.name, met(**batch))
 
-        # Some saving logic. This is an example
-        # Use if you need to save predictions on disk
+        if "logits" in batch and "labels" in batch:
+            batch_size = batch["logits"].shape[0]
+            current_id = batch_idx * batch_size
 
-        batch_size = batch["logits"].shape[0]
-        current_id = batch_idx * batch_size
+            for i in range(batch_size):
+                logits = batch["logits"][i].clone()
+                label = batch["labels"][i].clone()
+                pred_label = logits.argmax(dim=-1)
 
-        for i in range(batch_size):
-            # clone because of
-            # https://github.com/pytorch/pytorch/issues/1995
-            logits = batch["logits"][i].clone()
-            label = batch["labels"][i].clone()
-            pred_label = logits.argmax(dim=-1)
+                output_id = current_id + i
+                output = {
+                    "pred_label": pred_label,
+                    "label": label,
+                }
 
-            output_id = current_id + i
+                if self.save_path is not None:
+                    torch.save(
+                        output, self.save_path / part / f"output_{output_id}.pth"
+                    )
+        elif "predictions" in batch:
+            predictions = batch["predictions"]
+            paths = batch.get("paths") or [None] * len(predictions)
+            image_ids = batch.get("image_ids") or list(range(len(predictions)))
 
-            output = {
-                "pred_label": pred_label,
-                "label": label,
-            }
-
-            if self.save_path is not None:
-                # you can use safetensors or other lib here
-                torch.save(output, self.save_path / part / f"output_{output_id}.pth")
+            for pred, path, image_id in zip(predictions, paths, image_ids):
+                output = {
+                    "boxes": pred.get("boxes", torch.empty((0, 4))).cpu(),
+                    "scores": pred.get("scores", torch.empty((0,))),
+                    "labels": pred.get("labels", torch.empty((0,), dtype=torch.int64)),
+                    "image_id": image_id,
+                    "path": path,
+                }
+                if self.save_path is not None:
+                    fname = f"prediction_{image_id}.pth"
+                    torch.save(output, self.save_path / part / fname)
 
         return batch
 

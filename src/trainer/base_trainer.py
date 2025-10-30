@@ -83,7 +83,7 @@ class BaseTrainer:
             self.epoch_len = epoch_len
 
         self.evaluation_dataloaders = {
-            k: v for k, v in dataloaders.items() if k != "train"
+            name: loader for name, loader in dataloaders.items() if name != "train"
         }
 
         # define epochs
@@ -99,6 +99,7 @@ class BaseTrainer:
         self.monitor = self.cfg_trainer.get(
             "monitor", "off"
         )  # format: "mnt_mode mnt_metric"
+        self.compute_eval_loss = self.cfg_trainer.get("compute_eval_loss", False)
 
         if self.monitor == "off":
             self.mnt_mode = "off"
@@ -344,8 +345,23 @@ class BaseTrainer:
             batch (dict): dict-based batch containing the data from
                 the dataloader with some of the tensors on the device.
         """
+
+        def move_value(value):
+            import torch
+
+            if isinstance(value, torch.Tensor):
+                return value.to(self.device)
+            if isinstance(value, list):
+                return [move_value(item) for item in value]
+            if isinstance(value, tuple):
+                return tuple(move_value(item) for item in value)
+            if isinstance(value, dict):
+                return {k: move_value(v) for k, v in value.items()}
+            return value
+
         for tensor_for_device in self.cfg_trainer.device_tensors:
-            batch[tensor_for_device] = batch[tensor_for_device].to(self.device)
+            if tensor_for_device in batch:
+                batch[tensor_for_device] = move_value(batch[tensor_for_device])
         return batch
 
     def transform_batch(self, batch):

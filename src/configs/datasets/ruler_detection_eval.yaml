@@ -1,0 +1,7 @@
+test:
+  _target_: src.datasets.RulerCocoDataset
+  images_dir: ${paths.images_dir}
+  ann_file: ${paths.coco_annotations}
+  image_ids_file: ${paths.test_ids}
+  is_train: false
+  normalize: true

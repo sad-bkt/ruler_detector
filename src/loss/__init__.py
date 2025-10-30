@@ -1,1 +1,5 @@
-from src.loss.example import ExampleLoss
+from src.loss.detection import DetectionLoss
+
+__all__ = [
+    "DetectionLoss",
+]

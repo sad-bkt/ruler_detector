@@ -1,0 +1,6 @@
+_target_: src.model.FasterRCNNDetector
+num_classes: 2
+pretrained_backbone: true
+trainable_backbone_layers: 3
+score_thresh: 0.3
+nms_thresh: 0.45

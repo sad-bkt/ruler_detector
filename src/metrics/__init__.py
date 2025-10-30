@@ -1,1 +1,5 @@
-from src.metrics.example import ExampleMetric
+from src.metrics.detection_map import DetectionMeanAPMetric
+
+__all__ = [
+    "DetectionMeanAPMetric",
+]

@@ -6,8 +6,10 @@ tqdm
 matplotlib
 pandas
 wandb
-comet_ml
 hydra-core
+pycocotools
+albumentations>=1.4.3
+opencv-python>=4.10.0
 
 black
 isort

@@ -1,0 +1,20 @@
+train:
+  _target_: src.transforms.albumentations_adapter.AlbuDetectionAdapter
+  albu:
+    _target_: albumentations.Compose
+    transforms:
+      - _target_: albumentations.Rotate
+        limit: 30            # диапазон +-30 градусов
+        border_mode: 0       # cv2.BORDER_CONSTANT
+        p: 0.8
+      - _target_: albumentations.HorizontalFlip
+        p: 0.5
+      - _target_: albumentations.RandomBrightnessContrast
+        p: 0.3
+    bbox_params:
+      _target_: albumentations.BboxParams
+      format: pascal_voc     # т.к. в датасете боксы в формате xyxy
+      label_fields: [labels]
+      min_visibility: 0.2
+
+inference: null

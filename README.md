@@ -1,145 +1,202 @@
-# PyTorch Template for DL projects
+# Детектор линеек разных типов
 
-<p align="center">
-  <a href="#about">About</a> •
-  <a href="#tutorials">Tutorials</a> •
-  <a href="#examples">Examples</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#how-to-use">How To Use</a> •
-  <a href="#useful-links">Useful Links</a> •
-  <a href="#credits">Credits</a> •
-  <a href="#license">License</a>
-</p>
 
-<p align="center">
-<a href="https://github.com/Blinorot/pytorch_project_template/generate">
-  <img src="https://img.shields.io/badge/use%20this-template-green?logo=github">
-</a>
-<a href="https://github.com/Blinorot/pytorch_project_template/blob/main/LICENSE">
-   <img src=https://img.shields.io/badge/license-MIT-blue.svg>
-</a>
-<a href="https://github.com/Blinorot/pytorch_project_template/blob/main/CITATION.cff">
-   <img src="https://img.shields.io/badge/cite-this%20repo-purple">
-</a>
-</p>
+Для чистоты, воспроизводимости и масштабируемости кода я решила использовать шаблон [**PyTorch Project Template**](https://github.com/Blinorot/pytorch_project_template).
 
-## About
+#### Особенности шаблона
+- **Конфигурация через Hydra** - все параметры обучения, пути и гиперпараметры задаются в YAML-файлах и легко изменяются через командную строку.
+- **Отслеживание экспериментов** - интеграция с [Weights & Biases (WandB)](https://wandb.ai) для логирования и сравнения запусков.
+- **Поддержка чистоты кода** - подключены инструменты `black`, `isort` и `flake8` через [pre-commit](https://pre-commit.com), которые автоматически форматируют код и проверяют его стиль.
+- **Воспроизводимость** - каждый запуск сохраняется в отдельную папку `outputs/YYYY-MM-DD/`, что упрощает версионирование и анализ результатов.
+- **Модульная структура** - код модели, датасета и тренера полностью разделён и легко расширяется под разные эксперименты.
 
-This repository contains a template for [PyTorch](https://pytorch.org/)-based Deep Learning projects.
+#### Структура проекта
 
-The template utilizes different python-dev techniques to improve code readability. Configuration methods enhance reproducibility and experiments control.
+```bash
+ruler_detector/
+├── README.md
+├── CITATION.cff
+├── LICENSE
+├── requirements.txt
+├── requirements_eda_annotate.txt
+├── train.py
+├── inference.py
+├── annotate.py
+├── prepare_coco_splits.py
+├── data/
+│   └── ruler/
+│       ├── annotations/
+│       └── unlabeled/
+├── notebooks/
+│   └── eda_and_annotate.ipynb
+├── outputs/                # Логи/артефакты запусков и визуализации
+├── saved/                  # Сохранённые эксперименты и конфиги
+├── weights/                # Предобученные веса (CLIP, DINO, YOLO и т.п.)
+├── img/                    # Примерные изображения/визуализации
+└── src/
+    ├── configs/           # Hydra-конфиги: датасеты, модели, тренинг, инференс
+    ├── datasets/          # Загрузчики данных и утилиты
+    ├── logger/            # Логирование и настройка логов
+    ├── loss/              # Функции потерь
+    ├── metrics/           # Метрики (mAP и др.)
+    ├── model/             # Определения моделей
+    ├── pipelines/         # Пайплайны (если используются)
+    ├── trainer/           # Тренер, инференсер и базовые классы
+    ├── transforms/        # Аугментации и преобразования (albumentations и т.д.)
+    └── utils/             # Вспомогательные функции
+```
 
-The repository is released as a part of the [HSE DLA course](https://github.com/markovka17/dla), however, can easily be adopted for any DL-task.
+## Данные
 
-This template is the official recommended template for the [EPFL CS-433 ML Course](https://www.epfl.ch/labs/mlo/machine-learning-cs-433/).
+Датасет не размечен, состоит из 75 изображений с линейками: физическими и цифровыми, с различными делениями, подписями и без. На 11 изображениях нет линеек, на остальных находится от 1 до 8 штук.
 
-> 📖 **If you use this template in your work, please cite this repository or include a reference. Attribution supports the project and encourages continued development.**
+Дополнительный автоматический анализ можно посмотреть в [ноутбуке](notebooks/eda_and_annotate.ipynb).
 
-## Tutorials
+Выявлены следующие аномалии и проблемы в данных:
+* дубликаты
+![alt text](img/output.png)
+* шкалы, которые не являются линейками, но возможно мы хотим извлечь из них информацию о размерах предмета
+  ![alt text](img/2fe1b857a55624f2f9e745aec1cf8428dea97638_original.jpeg)
+или просто цифры, которые в потенциале могут быть размерами.
+ ![alt text](img/_7__.jpg)
+Тут зависит от конечной задачи, пока просто работаем с детекцией линеек, а их на этих изображениях нет.
+* черные полосы, я решила их считать за линейки тоже (но лучше еще уточнить у профильного специалиста)
+![alt text](<img/6 (1).jpg>)
+* разный масштаб линеек
+ ![alt text](img/2018-Subbotin-3.png)
+* таблица, которую можно спутать с линейкой (хорошо, что такой пример есть в датасете, можно добавить похожие)
+![alt text](img/230712094212.jpg)
+Есть пример "таблицы" - линейки (хотя тут тоже бы проконсультироваться на всякий случай)
+![alt text](<img/Печать новгородского Совета господ.jpg>)
+* плохое качество некоторых изображений
+![alt text](<img/images (9).jpeg>)
+* сложные случаи, когда может выделиться несколько линеек. Если хотим различать разные виды линеек для последующей обработки делений, то может их стоит размечать разными классами
+![alt text](img/IAET_4.jpg)
+* физические линейки расположены под разными углами, они из разного материала (пластиковые, деревянные, есть металлические рулетки) и могут быть специфической формы, например, с треугольным концом
+![alt text](img/Raskopki-na-Tamani.jpg)
+* есть непонятные тонкие полосы, могут быть определены детекторами как линейки
+  ![alt text](img/14p_nahodki_arheologi1_46b.jpg)
+* количество линеек не всегда очевидно, в данном случае разметила, как 2 разные
+  ![alt text](img/nechaevka.jpg)
+* подписи могут относиться не к линекам, а быть, например, нумерацией предметов, размечать решила без цифр.
 
-This template utilizes experiment tracking techniques, such as [WandB](https://docs.wandb.ai/) and [Comet ML](https://www.comet.com/docs/v2/), and [Hydra](https://hydra.cc/docs/intro/) for the configuration. It also automatically reformats code and conducts several checks via [pre-commit](https://pre-commit.com/). If you are not familiar with these tools, we advise you to look at the tutorials below:
+Выводы по данным и варианты решения проблем:
+* датасет маленький, надо дополнять еще данными или хотя бы делать аугментации
+* разделение на train/val/test лучше делать стратифицированно, чтобы выборки содержали примеры всех типов линеек и пустых изображений, но для этого надо выделять отдельные классы линеек, пока так делать не буду
+* по визуальному балансу: физические и цифровые линейки представлены примерно в равных количествах, однако присутствуют редкие экземпляры (например, нестандартные формы или шкалы). При этом цифровые линейки выглядят более однотипно, тогда как физические значительно варьируются по материалу, форме и углу съёмки - это может повлиять на устойчивость модели
 
-- [Python Dev Tips](https://github.com/ebezzam/python-dev-tips): information about [Git](https://git-scm.com/doc), [pre-commit](https://pre-commit.com/), [Hydra](https://hydra.cc/docs/intro/), and other stuff for better Python code development. The YouTube recording of the workshop is available [here](https://youtu.be/okxaTuBdDuY).
+## Подготовка и аннотация датасета
 
-- [Seminar on R&D Coding 2025](https://youtu.be/PE1zaW5it_A): Seminar from the [LauzHack Deep Learning Bootcamp](https://github.com/LauzHack/deep-learning-bootcamp/) with discussion on logging, project-based coding, configuration, and reproducibility. The materials can be found [here](https://github.com/LauzHack/deep-learning-bootcamp/tree/summer25/day05).
+Есть несколько способов ускорения аннотации изображений:
+1. Auto-labeling с хорошими моделями. Можно сделать ансамбль и объединять выданные боксы (или какой-то другой пост-процессинг).
+2. Active learning loop. Можно обучить модель (например, YOLO или DINO) на 10-20 размеченных изображениях, а дальше запускать разметку на остальных.
+3. Template matching для однотипных линеек. Искать аналогичные участки через feature matching (ORB/SIFT) или cross-correlation, но по моему опыту - работает такое плохо, особенно если на другом изображение есть какой-то шум или линейка под углом.
 
-- [Seminar on R&D Coding 2024](https://youtu.be/sEA-Js5ZHxU): Seminar from the [LauzHack Deep Learning Bootcamp](https://github.com/LauzHack/deep-learning-bootcamp/) with template discussion and reasoning. It also explains how to work with [WandB](https://docs.wandb.ai/). The seminar materials can be found [here](https://github.com/LauzHack/deep-learning-bootcamp/blob/main/day03/Seminar_WandB_and_Coding.ipynb).
+Я решила попробовать первый вариант с Grounding Dino, для разметки использовалось несколько промптов: ruler, measuring tape, tape measure, digital ruler, folding ruler, carpenter's ruler (указаны в [конфиге](/Users/anastasiasemina/PycharmProjects/ruler_detector/src/configs/annotate.yaml)).
 
-- [HSE DLA Course Introduction Week](https://github.com/markovka17/dla/tree/2024/week01): combines the two seminars above into one with some updates, including an extra example for [Comet ML](https://www.comet.com/docs/v2/).
+Прелейблинг получился неочень:
+![alt text](<img/nechaevka_combined.png>)
 
-- [PyTorch Basics](https://github.com/markovka17/dla/tree/2024/week01/intro_to_pytorch): several notebooks with [PyTorch](https://pytorch.org/docs/stable/index.html) basics and corresponding seminar recordings from the [LauzHack Deep Learning Bootcamp](https://github.com/LauzHack/deep-learning-bootcamp/).
 
-To start working with a template, just click on the `use this template` button.
+Так как датасет маленький, то решила, что целесообразнее размечать вручную, а не тестировать еще модели и подбирать под них параметры. 1 изображение-дубликат удалила, так как новой информации оно не несет. Изображения без линеек оставила, чтобы модель могла еще выучить фон.
 
-<a href="https://github.com/Blinorot/pytorch_project_template/generate">
-  <img src="https://img.shields.io/badge/use%20this-template-green?logo=github">
-</a>
+Я не была уверена, что можно делать датасет публичным, поэтому вместо Roboflow использовала LabelStudio.
 
-You can choose any of the branches as a starting point. [Set your choice as the default branch](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-branches-in-your-repository/changing-the-default-branch) in the repository settings. You can also [delete unnecessary branches](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-and-deleting-branches-within-your-repository).
+На данном этапе датасет пока не стала расширять, но нашла [первого кандидата](https://universe.roboflow.com/practicas-6jgbv/ruler-zgouh/browse?queryText=&pageSize=50&startingIndex=0&browseQuery=true) для дополнения. А вот [этот кандидат](https://universe.roboflow.com/rulerdataset/ruler-detection-velko/browse?queryText=&pageSize=50&startingIndex=0&browseQuery=true) может испортить качество детектора для нашей задачи и данных, ибо будет запоминать рыбу. Расширить датасет еще можно синтетическими данными и аугментациями.
 
-## Examples
+Примеры получившейся разметки продемонстрированы в том же ноутбуке, где и eda, готовый датасет можно скачать по [ссылке](https://disk.yandex.ru/d/cDTalYHzifwbCA).
 
-> [!IMPORTANT]
-> The main branch leaves some of the code parts empty or fills them with dummy examples, showing just the base structure. The final users can add code required for their own tasks.
+## Эксперименты
 
-You can find examples of this template completed for different tasks in other branches:
+### Для запуска кода нужно:
 
-- [Image classification](https://github.com/Blinorot/pytorch_project_template/tree/example/image-classification): simple classification problem on [MNIST](https://yann.lecun.com/exdb/mnist/) and [CIFAR-10](https://www.cs.toronto.edu/~kriz/cifar.html) datasets.
-
-- [ASR](https://github.com/Blinorot/pytorch_project_template/tree/example/asr): template for the automatic speech recognition (ASR) task. Some of the parts (for example, `collate_fn` and beam search for `text_encoder`) are missing for studying purposes of [HSE DLA course](https://github.com/markovka17/dla).
-
-## Installation
-
-Installation may depend on your task. The general steps are the following:
-
-0. (Optional) Create and activate new environment using [`conda`](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) or `venv` ([`+pyenv`](https://github.com/pyenv/pyenv)).
-
-   a. `conda` version:
-
+1. Положить картинки в папку /data/ruler/unlabeled.
+2. Создать и активировать виртуальное окружение:
    ```bash
-   # create env
-   conda create -n project_env python=PYTHON_VERSION
-
-   # activate env
-   conda activate project_env
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install --upgrade pip
    ```
-
-   b. `venv` (`+pyenv`) version:
-
+3. Установить зависимости.
+* Для eda и аннотирования:
    ```bash
-   # create env
-   ~/.pyenv/versions/PYTHON_VERSION/bin/python3 -m venv project_env
-
-   # alternatively, using default python version
-   python3 -m venv project_env
-
-   # activate env
-   source project_env/bin/activate
+   pip install -r requirements_eda_annotate.txt
    ```
-
-1. Install all required packages
-
+   И Grounding DINO отдельно, так как пакет не публикуется на PyPI и его скрипт сборки ломает зависимости.
    ```bash
+   pip install --no-build-isolation --no-deps "groundingdino @ git+https://github.com/IDEA-Research/GroundingDINO.git"
+   ```
+* для обучения и инференса
+```bash
    pip install -r requirements.txt
    ```
-
-2. Install `pre-commit`:
+4. Если планируете логирование, авторизуйтесь в Weights & Biases (нужен VPN):
    ```bash
-   pre-commit install
+   wandb login
+   ```
+2. Для аннотирования скачайте веса моделей и положите их в папку `weights/`:
+   ```bash
+   mkdir -p weights
+   wget https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinT_OGC.py -O weights/GroundingDINO_SwinT_OGC.py
    ```
 
-## How To Use
+#### Обучение и инференс через train.py / inference.py
 
-To train a model, run the following command:
+Запустить обучение модели детекции линеек:
+   ```bash
+   python train.py --config-name=train_faster_rcnn
+   ```
+<!-- python train.py --config-name=train_faster_rcnn trainer.override=True -->
 
-```bash
-python3 train.py -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
-```
+   Чекпоинты и логи появятся в `saved/ruler-detector`. Пороговые фильтры можно менять в `src/configs/ruler_train.yaml`.
 
-Where `CONFIG_NAME` is a config from `src/configs` and `HYDRA_CONFIG_ARGUMENTS` are optional arguments.
+Для инференса используйте сохранённый чекпоинт:
+   ```bash
+   python inference.py --config-name=inference_faster_rcnn inferencer.from_pretrained="saved/faster_rcnn1/model_best.pth"
+   ```
+   Предсказания сохраняются в `data/saved/ruler_inference/test/prediction_*.pth`.
 
-To run inference (evaluate the model or save predictions):
+### Бейзлайн
 
-```bash
-python3 inference.py HYDRA_CONFIG_ARGUMENTS
-```
+Для бейзлайна выбрала одну из класссических моделей детекции Faster R-CNN на ResNet50‑FPN, взяла готовую архитектуру из torchvision.
 
-## Useful Links:
+**Гиперпараметры, лосс, метрики**
 
-You may find the following links useful:
+Сначала я запускала с другими параметрами (25 эпох, AdamW с небольшим lr=5e-5) и без аугментаций, но оно как-то не особо обучилось, заменила на SGD с lr=0.001, lr_scheduler.CosineAnnealingLR, поставила 80 эпох, добавила аугментации поворот, отражение и др (полный список гиперпараметров можно увидеть в конфигах).
 
-- [Report branch](https://github.com/Blinorot/pytorch_project_template/tree/report): Guidelines for writing a scientific report/paper (with an emphasis on DL projects).
+График лоссов:
 
-- [CLAIRE Template](https://github.com/CLAIRE-Labo/python-ml-research-template): additional template by [EPFL CLAIRE Laboratory](https://www.epfl.ch/labs/claire/) that can be combined with ours to enhance experiments reproducibility via [Docker](https://www.docker.com/).
+![alt text](<img/image copy.png>)
 
-- [Mamba](https://github.com/mamba-org/mamba) and [Poetry](https://python-poetry.org/): alternatives to [Conda](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) and [pip](https://pip.pypa.io/en/stable/installation/) package managers given above.
+Лосс - стандартный для Faster R-CNN: он просто суммирует loss_classifier, loss_box_reg, loss_objectness, loss_rpn_box_reg.
 
-- [Awesome README](https://github.com/matiassingers/awesome-readme): a list of awesome README files for inspiration. Check the basics [here](https://github.com/PurpleBooth/a-good-readme-template).
+Метрика - COCO mAP из torchmetrics, потому что она учитывает несколько IoU и показывает, совпадают ли детекции с разметкой.
 
-## Credits
+Детекция на примере из val выборки:
+![alt text](<img/image copy 2.png>)
 
-This repository is based on a heavily modified fork of [pytorch-template](https://github.com/victoresque/pytorch-template) and [asr_project_template](https://github.com/WrathOfGrapes/asr_project_template) repositories.
+**Выбор чекпоинта**
+Тренер отслеживает val_mAP и сохраняет лучший вес как model_best.pth. Критерий — максимум mAP на валидации.
 
-## License
+**Качество решения**
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
+Остановила обучение на 24 эпохи, так как уже поджимало время.
+test_mAP: 0.2352991821244359
+
+Качество плохое, но лучше, чем в 1 эксперименте.
+
+### Следующие шаги:
+* конечно, лучше попробовать более сильные модели (например, можно взять что-то по [бенчмаркам](https://blog.roboflow.com/best-object-detection-models/)), просто по заданию нужно было использовать pytorch, а YOLO и другие ultralitics модели - это обращение к black-box
+* расширение датасета
+
+Если рассматривать более сложную задачу измерения размера объектов, то тут после детекции будут еще:
+
+1. коррекция перспективы
+2. нахождения соотношения пикселей и миллиметров
+3. измерение объекта (перевод пикселей в миллиметры)
+
+## Рефлексия или что можно было сделать лучше
+
+1. Мне хотелось сделать хорошую структуру кода, но в итоге я на нее потратила много времени, так как раньше не работала с таким шаблоном, а на эксперименты ничего не осталось. Тут всегда баланс между поддерживаемостью и быстротой.
+2. Для улучшения воспроизводимости можно было запускать все в докере с фиксированным окружением, но опять же в данном случае, достаточно того, что есть, сиды зафиксированы, версии библиотек тоже.
+3. Roboflow все-таки удобнее Label Studio.

@@ -1,0 +1,16 @@
+train:
+  _target_: src.datasets.RulerCocoDataset
+  images_dir: ${paths.images_dir}
+  ann_file: ${paths.coco_annotations}
+  image_ids_file: ${paths.train_ids}
+  is_train: true
+  instance_transform_train: ${transforms.instance_transforms.train}
+  normalize: true
+val:
+  _target_: src.datasets.RulerCocoDataset
+  images_dir: ${paths.images_dir}
+  ann_file: ${paths.coco_annotations}
+  image_ids_file: ${paths.val_ids}
+  is_train: false
+  instance_transform_inference: ${transforms.instance_transforms.inference}
+  normalize: true

@@ -1,0 +1,62 @@
+defaults:
+  - _self_
+
+dataset: data/ruler/unlabeled
+output_dir: outputs/eda_annotate/annotations
+label: ruler
+prompts:
+  - ruler
+  - measuring tape
+  - tape measure
+  - digital ruler
+  - folding ruler
+  - carpenter's ruler
+limit:
+models:
+  - name: grounding_dino
+    type: grounding_dino
+    enabled: true
+    config_path: weights/GroundingDINO_SwinT_OGC.py
+    weights: weights/groundingdino_swint_ogc.pth
+    device: auto
+    box_threshold: 0.25
+    text_threshold: 0.2
+  - name: yoloe
+    type: yoloe
+    enabled: false
+    weights: weights/yoloe-11l-seg.pt
+    device: auto
+    conf: 0.2
+    iou: 0.45
+postprocess:
+  type: weighted_boxes_fusion
+  params:
+    iou: 0.55
+    skip: 0.001
+filters:
+  default:
+    min_score: 0.4
+    min_area: 2000
+    min_aspect_ratio: 2.0
+    min_length: 120
+  per_source:
+    grounding_dino:
+      min_score: 0.25
+      min_area: 800
+      min_aspect_ratio: 1.5
+      min_length: 80
+    yoloe:
+      min_score: 0.12
+      min_area: 400
+      min_aspect_ratio:
+      min_length: 60
+    fused:
+      min_score: 0.35
+visualization:
+  save_overlays: true
+  dir: outputs/eda_annotate/visualizations
+  max_images_to_log: null
+hydra:
+  run:
+    dir: .
+  output_subdir: null

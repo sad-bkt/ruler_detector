@@ -1,6 +1,7 @@
 from itertools import repeat
 
 from hydra.utils import instantiate
+from torch.utils.data import DataLoader
 
 from src.datasets.collate import collate_fn
 from src.utils.init_utils import set_worker_seed
@@ -63,7 +64,12 @@ def get_dataloaders(config, device):
     move_batch_transforms_to_device(batch_transforms, device)
 
     # dataset partitions init
-    datasets = instantiate(config.datasets)  # instance transforms are defined inside
+    datasets = {}
+    for partition, dataset_cfg in config.datasets.items():
+        # Включаем рекурсивную инициализацию, чтобы поля вроде
+        # instance_transform_train/inference стали вызываемыми объектами,
+        # а не DictConfig
+        datasets[partition] = instantiate(dataset_cfg, _recursive_=True)
 
     # dataloaders init
     dataloaders = {}
@@ -75,12 +81,15 @@ def get_dataloaders(config, device):
             f"be larger than the dataset length ({len(dataset)})"
         )
 
-        partition_dataloader = instantiate(
-            config.dataloader,
+        dataloader_cfg = config.dataloader
+        partition_dataloader = DataLoader(
             dataset=dataset,
-            collate_fn=collate_fn,
-            drop_last=(dataset_partition == "train"),
+            batch_size=dataloader_cfg.batch_size,
+            num_workers=dataloader_cfg.num_workers,
+            pin_memory=dataloader_cfg.pin_memory,
             shuffle=(dataset_partition == "train"),
+            drop_last=(dataset_partition == "train"),
+            collate_fn=collate_fn,
             worker_init_fn=set_worker_seed,
         )
         dataloaders[dataset_partition] = partition_dataloader

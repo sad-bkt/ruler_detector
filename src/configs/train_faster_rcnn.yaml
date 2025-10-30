@@ -1,0 +1,57 @@
+defaults:
+  - model: faster_rcnn
+  - writer: wandb
+  - metrics: detection
+  - datasets: ruler_detection
+  - dataloader: detection
+  - transforms: detection
+  - loss@loss_function: detection
+  - _self_
+
+paths:
+  images_dir: data/ruler/unlabeled
+  coco_annotations: data/ruler/annotations/ruler_coco.json
+  train_ids: data/ruler/annotations/split_train.txt
+  val_ids: data/ruler/annotations/split_val.txt
+  test_ids: data/ruler/annotations/split_test.txt
+
+optimizer:
+  _target_: torch.optim.SGD
+  lr: 0.001
+  momentum: 0.9
+  weight_decay: 0.0005
+  nesterov: true
+
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  T_max: 80
+  eta_min: 1e-5
+
+trainer:
+  log_step: 20
+  n_epochs: 80
+  epoch_len: null
+  device_tensors: ["images", "targets"]
+  max_grad_norm: 1.0
+  resume_from: null
+  device: auto
+  override: False
+  monitor: "max val_mAP"
+  save_period: 5
+  early_stop: 10
+  save_dir: "saved"
+  seed: 42
+  compute_eval_loss: true
+
+writer:
+  project_name: "ruler-detector"
+  run_name: "faster-rcnn"
+  mode: "online"
+  loss_names:
+    - loss
+    - loss_loss_classifier
+    - loss_loss_box_reg
+    - loss_loss_objectness
+    - loss_loss_rpn_box_reg
+  log_checkpoints: true
+  save_code: true
