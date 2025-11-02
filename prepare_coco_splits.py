@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Split a COCO annotation file into train/val/test id lists, but it's not an original COCO format."""
+"""Split a COCO annotation file into train/val/test id lists."""
 
 from __future__ import annotations
 
